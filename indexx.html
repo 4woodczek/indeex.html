@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boyahane Reçete Takip</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/lucide-static@0.321.0/font/lucide.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-950">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo } = React;
+        
+        // Lucide simgeleri için basit bir bileşen wrapper
+        const Icon = ({ name, className }) => <i className={`lucide-${name} ${className}`}></i>;
+
+        const App = () => {
+            const realMachineNames = [
+                "CAN 54-800KG", "CAN 38-600KG", "CAN 58-800KG", "CAN 59-800KG", "CAN 60-800KG",
+                "CAN 61-800KG", "CAN 62-800KG", "CAN 63-800KG", "CAN 64-400KG", "CAN 65-400KG",
+                "CAN 72-300KG", "CAN 73-400KG", "CAN 50-400KG", "CAN 75-600KG", "CAN 79-600KG",
+                "CAN 77-600KG", "CAN 78-600KG", "CAN 42-1000KG", "CAN 43-1000KG", "CAN 47-600KG",
+                "CAN 37-600KG", "CAN 34-600KG", "CAN 35-600KG", "CAN 36-600KG", "CAN 38-600KG",
+                "CAN 39-800KG", "CAN 40-800KG", "CAN 41-800KG", "CAN 55-800KG", "CAN 57-1200KG",
+                "CAN 53-1200KG", "CAN 69-1200KG", "CAN 28-1200KG", "CAN 48-800KG", "CAN 49-800KG",
+                "CAN 51-800KG", "CAN 27-800KG", "CAN 31-600KG", "CAN 32-600KG"
+            ];
+
+            const [machines, setMachines] = useState(() => {
+                const initial = [];
+                for (let i = 1; i <= 100; i++) {
+                    const machineName = realMachineNames[i - 1] || `Makine ${i}`;
+                    initial.push({
+                        id: i,
+                        name: machineName,
+                        status: 'waiting', 
+                        recipe: '',
+                        fabricType: '',
+                        notes: '',
+                        lastUpdated: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+                    });
+                }
+                return initial;
+            });
+
+            const [selectedMachine, setSelectedMachine] = useState(null);
+            const [searchTerm, setSearchTerm] = useState('');
+            const [filterStatus, setFilterStatus] = useState('all');
+            const [isBulkEditMode, setIsBulkEditMode] = useState(false);
+            const [bulkNames, setBulkNames] = useState('');
+
+            const openBulkEdit = () => {
+                setBulkNames(machines.map(m => m.name).join('\n'));
+                setIsBulkEditMode(true);
+            };
+
+            const saveBulkNames = () => {
+                const nameList = bulkNames.split('\n');
+                setMachines(prev => prev.map((m, index) => ({
+                    ...m,
+                    name: nameList[index] || m.name
+                })));
+                setIsBulkEditMode(false);
+            };
+
+            const filteredMachines = useMemo(() => {
+                return machines.filter(m => {
+                    const matchesSearch = m.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                          m.recipe.toLowerCase().includes(searchTerm.toLowerCase());
+                    const matchesFilter = filterStatus === 'all' || m.status === filterStatus;
+                    return matchesSearch && matchesFilter;
+                });
+            }, [machines, searchTerm, filterStatus]);
+
+            const updateMachine = (id, updates) => {
+                setMachines(prev => prev.map(m => 
+                    m.id === id ? { ...m, ...updates, lastUpdated: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) } : m
+                ));
+                if (selectedMachine && selectedMachine.id === id) {
+                    setSelectedMachine(prev => ({ ...prev, ...updates }));
+                }
+            };
+
+            const getStatusColor = (status) => {
+                switch (status) {
+                    case 'completed': return 'bg-emerald-600 text-white border-emerald-400'; 
+                    case 'processing': return 'bg-blue-600 text-white border-blue-400';    
+                    case 'waiting': return 'bg-rose-600 text-white border-rose-400';       
+                    default: return 'bg-slate-700 text-slate-300 border-slate-600';
+                }
+            };
+
+            const getStatusLabel = (status) => {
+                switch (status) {
+                    case 'completed': return 'Reçete Yazıldı';
+                    case 'processing': return 'BOŞ';
+                    case 'waiting': return 'Beklemede';
+                    default: return 'Bilinmiyor';
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8">
+                    <header className="max-w-7xl mx-auto mb-8">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                            <div>
+                                <h1 className="text-3xl font-extrabold text-white tracking-tight">Boyahane Kontrol Merkezi</h1>
+                                <p className="text-slate-400 mt-1">Sistemdeki Tüm Makineler ve Kapasiteler</p>
+                            </div>
+                            
+                            <div className="flex flex-wrap items-center gap-3">
+                                <button onClick={openBulkEdit} className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 font-semibold text-sm">
+                                    <Icon name="settings-2" className="text-emerald-400" /> LİSTEYİ DÜZENLE
+                                </button>
+                                <div className="relative">
+                                    <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
+                                    <input type="text" placeholder="Ara..." className="pl-10 pr-4 py-2.5 border border-slate-800 rounded-xl bg-slate-900 text-white w-64 focus:ring-2 focus:ring-emerald-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                                </div>
+                                <select className="px-4 py-2.5 border border-slate-800 rounded-xl bg-slate-900 text-white focus:ring-2 focus:ring-emerald-500 outline-none" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+                                    <option value="all">Tüm Durumlar</option>
+                                    <option value="waiting">Beklemede</option>
+                                    <option value="processing">BOŞ</option>
+                                    <option value="completed">Reçete Yazıldı</option>
+                                </select>
+                            </div>
+                        </div>
+                    </header>
+
+                    {isBulkEditMode && (
+                        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div className="bg-slate-900 border border-slate-800 w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl">
+                                <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-800/50">
+                                    <h2 className="text-xl font-bold flex items-center gap-2"><Icon name="edit-3" className="text-emerald-400" /> Makine Listesi Güncelle</h2>
+                                    <button onClick={() => setIsBulkEditMode(false)} className="p-2 hover:bg-slate-700 rounded-full"><Icon name="x" className="w-6 h-6" /></button>
+                                </div>
+                                <div className="p-6">
+                                    <textarea className="w-full h-80 bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-sm focus:ring-2 focus:ring-emerald-500 outline-none" value={bulkNames} onChange={(e) => setBulkNames(e.target.value)} />
+                                    <div className="flex gap-3 mt-6">
+                                        <button onClick={saveBulkNames} className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl flex items-center justify-center gap-2"><Icon name="save" className="w-5 h-5" /> KAYDET</button>
+                                        <button onClick={() => setIsBulkEditMode(false)} className="px-8 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl">İPTAL</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div className="lg:col-span-2">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-8 gap-3">
+                                {filteredMachines.map((m) => (
+                                    <button key={m.id} onClick={() => setSelectedMachine(m)} className={`min-h-[100px] flex flex-col items-center justify-center p-3 rounded-xl transition-all border-2 shadow-lg ${selectedMachine?.id === m.id ? 'ring-4 ring-emerald-500/30 scale-105 z-10 border-white' : 'border-transparent hover:scale-105'} ${getStatusColor(m.status)}`}>
+                                        <span className="text-[10px] opacity-70 font-black uppercase mb-1">NO: {m.id}</span>
+                                        <span className="text-[11px] font-bold text-center leading-tight mb-2 h-8 flex items-center">{m.name}</span>
+                                        {m.status === 'completed' ? <Icon name="check-circle-2" className="w-5 h-5" /> : m.status === 'processing' ? <Icon name="circle" className="w-5 h-5" /> : <Icon name="alert-circle" className="w-5 h-5" />}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="lg:col-span-1">
+                            {selectedMachine ? (
+                                <div className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-800 overflow-hidden sticky top-8">
+                                    <div className={`p-6 ${getStatusColor(selectedMachine.status)}`}>
+                                        <div className="flex items-center gap-2">
+                                            <Icon name="edit-3" className="w-5 h-5 opacity-70" />
+                                            <input className="bg-transparent text-xl font-bold focus:outline-none border-b border-white/20 w-full" value={selectedMachine.name} onChange={(e) => updateMachine(selectedMachine.id, { name: e.target.value })} />
+                                        </div>
+                                        <p className="mt-2 text-sm font-medium bg-black/20 inline-block px-2 py-0.5 rounded italic">{getStatusLabel(selectedMachine.status)}</p>
+                                    </div>
+                                    <div className="p-6 space-y-6">
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-500 mb-3 uppercase tracking-widest">Durum Ayarla</label>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <button onClick={() => updateMachine(selectedMachine.id, { status: 'waiting' })} className={`py-2 rounded-lg text-[10px] font-bold border ${selectedMachine.status === 'waiting' ? 'bg-rose-600 border-rose-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>BEKLEMEDE</button>
+                                                <button onClick={() => updateMachine(selectedMachine.id, { status: 'processing' })} className={`py-2 rounded-lg text-[10px] font-bold border ${selectedMachine.status === 'processing' ? 'bg-blue-600 border-blue-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>BOŞ</button>
+                                                <button onClick={() => updateMachine(selectedMachine.id, { status: 'completed' })} className={`py-2 rounded-lg text-[10px] font-bold border ${selectedMachine.status === 'completed' ? 'bg-emerald-600 border-emerald-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>REÇETE HAZIR</button>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-4">
+                                            <input className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none" value={selectedMachine.recipe} onChange={(e) => updateMachine(selectedMachine.id, { recipe: e.target.value })} placeholder="Reçete / Parti" />
+                                            <input className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none" value={selectedMachine.fabricType} onChange={(e) => updateMachine(selectedMachine.id, { fabricType: e.target.value })} placeholder="Kumaş Türü" />
+                                            <textarea className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none h-24 resize-none" value={selectedMachine.notes} onChange={(e) => updateMachine(selectedMachine.id, { notes: e.target.value })} placeholder="Notlar..." />
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => setSelectedMachine(null)} className="flex-1 py-2 bg-slate-800 text-slate-300 font-bold rounded-xl text-sm">KAPAT</button>
+                                            <button onClick={() => updateMachine(selectedMachine.id, { recipe: '', fabricType: '', notes: '', status: 'waiting' })} className="p-2.5 bg-rose-900/30 text-rose-500 rounded-xl border border-rose-900/50"><Icon name="trash-2" className="w-5 h-5" /></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="h-full flex flex-col items-center justify-center p-8 bg-slate-900/50 rounded-2xl border-2 border-dashed border-slate-800 text-slate-600 uppercase text-xs font-bold tracking-widest">Bir Makine Seçin</div>
+                            )}
+                        </div>
+                    </main>
+
+                    <footer className="max-w-7xl mx-auto mt-12 grid grid-cols-2 md:grid-cols-4 gap-4 pb-12">
+                        <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-xl">
+                            <p className="text-[10px] text-slate-500 font-black uppercase">Makineler</p>
+                            <p className="text-3xl font-black">100</p>
+                        </div>
+                        <div className="bg-rose-900/20 p-5 rounded-2xl border border-rose-900/30 shadow-xl">
+                            <p className="text-[10px] text-rose-400 font-black uppercase text-rose-500">Beklemede</p>
+                            <p className="text-3xl font-black text-rose-500">{machines.filter(m => m.status === 'waiting').length}</p>
+                        </div>
+                        <div className="bg-blue-900/20 p-5 rounded-2xl border border-blue-900/30 shadow-xl">
+                            <p className="text-[10px] text-blue-400 font-black uppercase text-blue-500">BOŞ</p>
+                            <p className="text-3xl font-black text-blue-500">{machines.filter(m => m.status === 'processing').length}</p>
+                        </div>
+                        <div className="bg-emerald-900/20 p-5 rounded-2xl border border-emerald-900/30 shadow-xl">
+                            <p className="text-[10px] text-emerald-400 font-black uppercase text-emerald-500">Reçete Hazır</p>
+                            <p className="text-3xl font-black text-emerald-500">{machines.filter(m => m.status === 'completed').length}</p>
+                        </div>
+                    </footer>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
